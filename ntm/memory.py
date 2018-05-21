@@ -17,7 +17,7 @@ class NTMMemory(nn.Module):
         stdev = 1 / (np.sqrt(N + M))
         nn.init.uniform(self.mem_init, -stdev, stdev)
 
-    def reset(self, batch_size):
+    def create_new_state(self, batch_size):
         self.batch_size = batch_size
         self.memory = self.mem_init.clone().repeat(batch_size, 1, 1)
 
