@@ -1,10 +1,16 @@
 import torch
 from torch import nn
-import torch.Tensor
 import torch.nn.functional as F
 import numpy as np
 
 def _split_cols(mat, lengths):
+    """
+    Args:
+        mat: 2D tensor, shape = (N,sum(len of param))
+        lengths: list of length of k, β, g, s, γ, (e, a)
+    Outputs:
+        list of 2D tensor corresponding to the providing param lengths
+    """
     assert mat.size()[1] == sum(lengths)
     l = np.cumsum([0] + lengths)
     results = []
@@ -15,20 +21,20 @@ def _split_cols(mat, lengths):
 
 class NTMHeadBase(nn.Module):
 
-    def __init__(self, memory, controller_size):
+    def __init__(self, memory,ctrl_size):
         super(NTMHeadBase, self).__init__()
 
         self.memory = memory
         self.N, self.M = memory.size
-        self.controller_size = controller_size
+        self.ctrl_size = ctrl_size
 
     def _address_memory(self, k, beta, g, s, gamma, w_prev):
-        """
-        k: key vector
-        beta: key strength, [0,\inf) ,0-> uniform, \inf -> one-hot
-        g: interploation coeff, (0,1)
-        s: shift weighting, kind of weighted sum (sum to 1), (0,1)
-        gamma: sharpening strength, [1,\inf)
+        """Preprocess the ctrl output to match the valid range & get the address weighting
+            beta: [0,∞)
+            g: (0,1)
+            s: (0,1), and sum(s,dim=1) = 1.0
+            gamma: [1,∞)
+            w_prev: address weighting of t-1, shape = (batch_size,N)
         """
         k = k.clone()
         beta = F.relu(beta)
@@ -42,12 +48,12 @@ class NTMHeadBase(nn.Module):
 
 
 class NTMReadHead(NTMHeadBase):
-    def __init__(self, memory, controller_size):
-        super(NTMReadHead, self).__init__(memory, controller_size)
+    def __init__(self, memory,ctrl_size):
+        super(NTMReadHead, self).__init__(memory, ctrl_size)
 
         # Corresponding to k, beta, g, s, gamma sizes from the paper
         self.read_chunk_lens= [self.M, 1, 1, 3, 1]
-        self.fc_read = nn.Linear(controller_size, sum(self.read_chunk_lens))
+        self.fc_read = nn.Linear(ctrl_size, sum(self.read_chunk_lens))
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
@@ -83,9 +89,8 @@ class NTMWriteHead(NTMHeadBase):
         return torch.zeros(batch_size, self.N)
 
     def reset_parameters(self):
-        # Initialize the linear layers
-        nn.init.xavier_uniform(self.fc_write.weight, gain=1.4)
-        nn.init.normal(self.fc_write.bias, std=0.01)
+        nn.init.xavier_uniform_(self.fc_write.weight, gain=1.4)
+        nn.init.normal_(self.fc_write.bias, std=0.01)
 
     def is_read_head(self):
         return False

@@ -9,18 +9,24 @@ class LSTMController(nn.Module):
         self.outp_dim = outp_dim
         self.num_layers = num_layers
 
+        # Core
         self.lstm = nn.LSTM(
             input_size = inp_dim,
             hidden_size = outp_dim,
             num_layers = num_layers,
         )
-
+        
+        # set init state can be trained
         self.lstm_h = nn.Parameter(torch.randn(num_layers, 1, outp_dim) * 0.05)
         self.lstm_c = nn.Parameter(torch.randn(num_layers, 1, outp_dim) * 0.05)
 
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
+        """ Init new state and batchify
+        Outputs:
+            batch_state: shape = (num_layers,batch_size,ctrl_size)
+        """
         batched_lstm_h = self.lstm_h.clone().repeat(1, batch_size, 1)
         batched_lstm_c = self.lstm_c.clone().repeat(1, batch_size, 1)
         return batched_lstm_h, batched_lstm_c
@@ -38,14 +44,16 @@ class LSTMController(nn.Module):
 
     def forward(self, inp, prev_state):
         """
-        inp.shape = (seq_len, batch, inp_dim)
-        //Assume uni-directional
-        c.shape = h.shape = (num_layer, batch, hid_dim)
-        outp.shape = (seq_len, batch, hid_dim)
+        Args:
+            inp: input of controller (external input + read_head state)
+                shape: (batch_size,inp_dim + num_read_head * mem_dim)
+            prev_state: (h_{t-1},c_{t-1})
+                shape: both (num_layers,batch_size,ctrl_size)
+        Outputs:
+            outp: will use as the embedding to generate related param, k, β, g, s, γ, (e, a)
+                shape: (batch_size, ctrl_size)
+            state: (h_t,c_t)
+                shape: both (num_layers, batch_size, ctrl_size)
         """
-        # x = x.unsqueeze(0)
-        outp, state = self.lstm(inp, prev_state)
-        return outp,state
-        # return outp.squeeze(0), state
-
-# class FNNController(nn.module):
+        outp, state = self.lstm(inp.unsqueeze(0), prev_state)
+        return outp.squeeze(0),state

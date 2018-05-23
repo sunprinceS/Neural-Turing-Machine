@@ -3,6 +3,10 @@ import torch.nn.functional as F
 from torch import nn
 import numpy as np
 
+def _convolve(w,s):
+    pad_w = torch.cat([w[-1:],w,w[:1]])
+    return F.conv1d(pad_w.view(1,1,-1),s.view(1,1,-1)).view(-1)
+
 class NTMMemory(nn.Module):
     def __init__(self, N, M):
         super(NTMMemory, self).__init__()
@@ -10,12 +14,12 @@ class NTMMemory(nn.Module):
         self.N = N
         self.M = M
 
-        # Not train mem_init
+        # mem_init not training
         self.register_buffer('mem_init', torch.Tensor(N, M))
 
-        # Initialize memory bias
-        stdev = 1 / (np.sqrt(N + M))
-        nn.init.uniform(self.mem_init, -stdev, stdev)
+    def reset_parameters(self):
+        stdev = 1 / (np.sqrt(self.N + self.M))
+        nn.init.uniform_(self.mem_init, -stdev, stdev)
 
     def create_new_state(self, batch_size):
         self.batch_size = batch_size
@@ -26,19 +30,19 @@ class NTMMemory(nn.Module):
         return self.N, self.M
 
     def read(self, w):
+        """ Read memory corresponding to the address weighting
+        Arguments:
+            w: shape = (batch_size,N)
+        Outputs:
+            shape = (batch_size,M)
         """
-        w.shape = (batch_size,N)
-        memory.shape = (batch_size,N,M)
-        outp.shape = (batch_size,1,M)
-        """
-        return torch.matmul(w.unsqueeze(1), self.memory)
+        return torch.matmul(w.unsqueeze(1), self.memory).squeeze(1)
 
     def write(self, w, e, a):
-        """
-        w.shape = (batch_size,N)
-        memory.shape = (batch_size,N,M)
-        e.shape = a.shape = (batch_size,M)
-        erase.shape = add.shape = (batch_size,N,M)
+        """ Erase/Add memory corresponding to the address weighting
+        Arguments:
+            w: shape = (batch_size,N)
+            e,a: shape = (batch_size,M)
         """
         self.prev_mem = self.memory
         erase = torch.matmul(w.unsqueeze(-1), e.unsqueeze(1))
@@ -57,9 +61,6 @@ class NTMMemory(nn.Module):
         return w
 
     def _similarity(self, k, beta):
-        """
-        cos_sim.shape = (batch_size,N)
-        """
         cos_sim = F.cosine_similarity(self.memory + 1e-16, k.unsqueeze(1) + 1e-16, dim=-1)
         w = F.softmax(beta * cos_sim , dim=1)
         return w
@@ -68,11 +69,15 @@ class NTMMemory(nn.Module):
         return g * wc + (1 - g) * w_prev
 
     def _shift(self, wg, s):
-        conved = torch.cat([wg[:,-1:],wg,wg[:,:1]],dim=1)
-        result = F.conv1d(conved.unsqueeze(1),s.unsqueeze(1))
+        # conved = torch.cat([wg[:,-1:],wg,wg[:,:1]],dim=1)
+        # result = F.conv1d(conved.unsqueeze(1),s.unsqueeze(1))
         #FIXME: building time is pretty long if batch_size is large
         #TODO: abother elegant solution?
-        return torch.cat([result[i:i+1,i,:] for i in range(self.batch_size)])
+        # return torch.cat([result[i:i+1,i,:] for i in range(self.batch_size)])
+        result = torch.Tensor(self.batch_size,self.N)
+        for b in range(self.batch_size):
+            result[b] = _convolve(wg[b],s[b])
+        return result
 
     def _sharpen(self, w_hat, gamma):
         w = w_hat ** gamma
