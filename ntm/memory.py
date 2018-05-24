@@ -16,6 +16,7 @@ class NTMMemory(nn.Module):
 
         # mem_init not training
         self.register_buffer('mem_init', torch.Tensor(N, M))
+        self.reset_parameters()
 
     def reset_parameters(self):
         stdev = 1 / (np.sqrt(self.N + self.M))
@@ -61,9 +62,12 @@ class NTMMemory(nn.Module):
         return w
 
     def _similarity(self, k, beta):
-        cos_sim = F.cosine_similarity(self.memory + 1e-16, k.unsqueeze(1) + 1e-16, dim=-1)
-        w = F.softmax(beta * cos_sim , dim=1)
+        k = k.view(self.batch_size, 1, -1)
+        w = F.softmax(beta * F.cosine_similarity(self.memory + 1e-16, k + 1e-16, dim=-1), dim=1)
         return w
+        # cos_sim = F.cosine_similarity(self.memory + 1e-16, k.unsqueeze(1) + 1e-16, dim=-1)
+        # w = F.softmax(beta * cos_sim , dim=1)
+        # return w
 
     def _interpolate(self, w_prev, wc, g):
         return g * wc + (1 - g) * w_prev

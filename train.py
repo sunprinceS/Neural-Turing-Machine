@@ -7,7 +7,7 @@ import torch
 from ntm import *
 from tasks.copy import TaskCopy
 
-RANDOM_SEED = 101
+RANDOM_SEED = 1000
 
 def init_seed(seed):
     np.random.seed(seed)

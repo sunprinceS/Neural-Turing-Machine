@@ -23,10 +23,10 @@ class NTM(nn.Module):
                 NTMReadHead(self.memory,ctrl_size),
                 NTMWriteHead(self.memory,ctrl_size)
             ]
-            init_r = torch.Tensor(1,self.memory.size[1])
+            init_r = torch.randn(1,self.memory.size[1]) * 0.01
             self.register_buffer('init_r{}'.format(i),init_r)
             self.init_rs.append(init_r)
-        self.fc = nn.Linear(ctrl_size + num_heads * M, outp_dim)
+        self.fc = nn.Linear(num_heads * M, outp_dim)
         self.reset_parameters()
         
     def init(self,batch_size):
@@ -34,25 +34,23 @@ class NTM(nn.Module):
         self.prev_state = self.create_new_state()
 
     def create_new_state(self):
+        self.memory.create_new_state(self.batch_size)
         init_rs = [r.clone().repeat(self.batch_size,1) for r in self.init_rs]
         ctrl_state = self.controller.create_new_state(self.batch_size)
         heads_state = [head.create_new_state(self.batch_size) for head in self.heads]
-        self.memory.create_new_state(self.batch_size)
 
         return init_rs,ctrl_state,heads_state
 
     def reset_parameters(self):
-        nn.init.xavier_uniform_(self.fc.weight,gain=1.4)
+        nn.init.xavier_uniform_(self.fc.weight,gain=1)
         nn.init.normal_(self.fc.bias,std=0.01)
-        for init_r in self.init_rs:
-            nn.init.normal_(init_r)
+        # for init_r in self.init_rs:
+            # nn.init.normal_(init_r)
 
     def forward(self,x):
-        print(x.shape)
         prev_reads,prev_ctrl_state,prev_heads_state = self.prev_state
         inp = torch.cat([x] + prev_reads,dim=1)
         ctrl_outp,ctrl_state = self.controller(inp,prev_ctrl_state)
-
         reads = []
         heads_state = []
         for head,prev_head_state in zip(self.heads,prev_heads_state):
@@ -64,11 +62,11 @@ class NTM(nn.Module):
             heads_state += [head_state]
 
         # Retrieve output according to current reads
-        inp2 = torch.cat([x] + reads, dim=1)
+        inp2 = torch.cat(reads, dim=1)
         o = F.sigmoid(self.fc(inp2)) # range: [0,1]
-        self.prev_state = (reads,ctrl_state,heads_states)
+        self.prev_state = (reads,ctrl_state,heads_state)
 
-        return o, self.prev_state.clone()
+        return o, self.prev_state
     
     def calculate_num_params(self):
         return sum([p.view(-1).size(0) for p in self.parameters()])

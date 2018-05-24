@@ -36,7 +36,9 @@ class LSTMController(nn.Module):
             if p.dim() == 1:
                 nn.init.constant_(p, .0)
             else:
-                nn.init.xavier_normal_(p,gain=1.4)
+                nn.init.xavier_normal_(p,gain=1.2)
+                # stdev = 5 / (np.sqrt(self.inp_dim+  self.outp_dim))
+                # nn.init.uniform(p, -stdev, stdev)
 
     @property
     def size(self):
