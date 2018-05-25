@@ -10,6 +10,8 @@ class NTM(nn.Module):
     def __init__(self,inp_dim,outp_dim,ctrl_size,ctrl_num_layers,N,M,num_heads):
         super(NTM,self).__init__()
 
+        # if torch.cuda.is_available():
+            # torch.set_default_tensor_type('torch.cuda.FloatTensor')
         self.inp_dim = inp_dim
         self.outp_dim = outp_dim
         self.ctrl_size = ctrl_size
@@ -26,7 +28,7 @@ class NTM(nn.Module):
             init_r = torch.Tensor(1,self.memory.size[1])
             self.register_buffer('init_r{}'.format(i),init_r)
             self.init_rs.append(init_r)
-        self.fc = nn.Linear(num_heads * M, outp_dim)
+        self.fc = nn.Linear(inp_dim + num_heads * M, outp_dim)
         self.reset_parameters()
         
     def init(self,batch_size):
@@ -64,7 +66,7 @@ class NTM(nn.Module):
             heads_state += [head_state]
 
         # Retrieve output according to current reads
-        inp2 = torch.cat(reads, dim=1)
+        inp2 = torch.cat([x] + reads, dim=1)
         o = F.sigmoid(self.fc(inp2)) # range: [0,1]
         self.prev_state = (reads,ctrl_state,heads_state)
 

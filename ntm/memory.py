@@ -28,6 +28,9 @@ class NTMMemory(nn.Module):
         self.batch_size = batch_size
         self.memory = self.mem_init.clone().repeat(batch_size, 1, 1)
 
+    def get_memory(self):
+        return self.memory.clone().squeeze(0)
+
     @property
     def size(self):
         return self.N, self.M
