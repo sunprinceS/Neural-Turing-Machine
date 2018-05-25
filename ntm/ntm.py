@@ -23,7 +23,7 @@ class NTM(nn.Module):
                 NTMReadHead(self.memory,ctrl_size),
                 NTMWriteHead(self.memory,ctrl_size)
             ]
-            init_r = torch.randn(1,self.memory.size[1]) * 0.01
+            init_r = torch.Tensor(1,self.memory.size[1])
             self.register_buffer('init_r{}'.format(i),init_r)
             self.init_rs.append(init_r)
         self.fc = nn.Linear(num_heads * M, outp_dim)
@@ -34,6 +34,8 @@ class NTM(nn.Module):
         self.prev_state = self.create_new_state()
 
     def create_new_state(self):
+        """Init new state and batchify"""
+
         self.memory.create_new_state(self.batch_size)
         init_rs = [r.clone().repeat(self.batch_size,1) for r in self.init_rs]
         ctrl_state = self.controller.create_new_state(self.batch_size)
@@ -44,8 +46,8 @@ class NTM(nn.Module):
     def reset_parameters(self):
         nn.init.xavier_uniform_(self.fc.weight,gain=1)
         nn.init.normal_(self.fc.bias,std=0.01)
-        # for init_r in self.init_rs:
-            # nn.init.normal_(init_r)
+        for init_r in self.init_rs:
+            nn.init.normal_(init_r)
 
     def forward(self,x):
         prev_reads,prev_ctrl_state,prev_heads_state = self.prev_state

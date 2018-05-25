@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
 
 class LSTMController(nn.Module):
     def __init__(self,inp_dim,outp_dim,num_layers):
@@ -37,8 +37,6 @@ class LSTMController(nn.Module):
                 nn.init.constant_(p, .0)
             else:
                 nn.init.xavier_normal_(p,gain=1.2)
-                # stdev = 5 / (np.sqrt(self.inp_dim+  self.outp_dim))
-                # nn.init.uniform(p, -stdev, stdev)
 
     @property
     def size(self):

@@ -23,6 +23,8 @@ class NTMMemory(nn.Module):
         nn.init.uniform_(self.mem_init, -stdev, stdev)
 
     def create_new_state(self, batch_size):
+        """ Init new memory and batchify """
+
         self.batch_size = batch_size
         self.memory = self.mem_init.clone().repeat(batch_size, 1, 1)
 
@@ -51,6 +53,7 @@ class NTMMemory(nn.Module):
         self.memory = self.prev_mem * (1 - erase) + add
 
     def address(self, k, beta, g, s, gamma, w_prev):
+        """Address Mechanism"""
         # Content focus
         wc = self._similarity(k, beta)
 
@@ -62,28 +65,34 @@ class NTMMemory(nn.Module):
         return w
 
     def _similarity(self, k, beta):
-        k = k.view(self.batch_size, 1, -1)
-        w = F.softmax(beta * F.cosine_similarity(self.memory + 1e-16, k + 1e-16, dim=-1), dim=1)
+        """Content Addressing Mechanism"""
+
+        cos_sim = F.cosine_similarity(self.memory + 1e-16, k.unsqueeze(1) + 1e-16, dim=-1)
+        w = F.softmax(beta * cos_sim , dim=1)
         return w
-        # cos_sim = F.cosine_similarity(self.memory + 1e-16, k.unsqueeze(1) + 1e-16, dim=-1)
-        # w = F.softmax(beta * cos_sim , dim=1)
-        # return w
+
 
     def _interpolate(self, w_prev, wc, g):
+        """Interpolation Gate, blend weighting with last time-step"""
+
         return g * wc + (1 - g) * w_prev
 
     def _shift(self, wg, s):
+        """Shifting Weighting, normalized distribution over allowed shifts"""
+
         # conved = torch.cat([wg[:,-1:],wg,wg[:,:1]],dim=1)
         # result = F.conv1d(conved.unsqueeze(1),s.unsqueeze(1))
-        #FIXME: building time is pretty long if batch_size is large
-        #TODO: abother elegant solution?
+        #FIXME: building time is pretty long if batch_size is large, other solutions?
         # return torch.cat([result[i:i+1,i,:] for i in range(self.batch_size)])
+
         result = torch.Tensor(self.batch_size,self.N)
         for b in range(self.batch_size):
             result[b] = _convolve(wg[b],s[b])
         return result
 
     def _sharpen(self, w_hat, gamma):
+        """Sharpen final weighting, prevent blurring"""
+
         w = w_hat ** gamma
         w = torch.div(w, torch.sum(w, dim=1).view(-1, 1) + 1e-16)
         return w

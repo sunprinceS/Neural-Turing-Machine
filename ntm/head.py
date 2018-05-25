@@ -57,6 +57,8 @@ class NTMReadHead(NTMHeadBase):
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
+        """ Init new state and batchify """
+
         return torch.zeros(batch_size, self.N)
 
     def reset_parameters(self):
@@ -86,6 +88,8 @@ class NTMWriteHead(NTMHeadBase):
         self.reset_parameters()
 
     def create_new_state(self, batch_size):
+        """ Init new state and batchify """
+
         return torch.zeros(batch_size, self.N)
 
     def reset_parameters(self):
