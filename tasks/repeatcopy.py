@@ -8,8 +8,8 @@ class TaskRepeatCopy(TaskBase):
         super(TaskRepeatCopy,self).__init__('repeat-copy',cfg['mark'],mode)
 
         ## Normalization of repeated times
-        self.rep_min = 3
-        self.rep_max = 11
+        self.rep_min = 1
+        self.rep_max = 10
         self.rep_mean = (self.rep_min + self.rep_max)/2
         self.rep_std = sqrt((self.rep_max - self.rep_min)**2/12)
 
@@ -44,7 +44,7 @@ class TaskRepeatCopy(TaskBase):
         for idx,(X,y) in enumerate(tqdm(self._data_gen(
                     self.num_batches,self.batch_size),total=self.num_batches)):
             loss,cost = self._train_batch(X,y)
-            if (idx+1) % 200 == 0:
+            if (idx+1) % 10 == 0:
                 self.analysis(loss,cost,idx)
 
             if (idx+1) % 1000 == 0:
@@ -54,8 +54,8 @@ class TaskRepeatCopy(TaskBase):
     def analysis(self,loss,cost,idx):
 
         # Generate some testcase
-        seq_len = 12
-        num_reps= 15
+        seq_len = 10
+        num_reps= 12
         pred,te_y = self.evaluate(seq_len,num_reps,idx)
         self.draw_sample(pred,te_y,num_reps,idx)
         
@@ -93,10 +93,7 @@ class TaskRepeatCopy(TaskBase):
             transforms.ToPILImage(),
             transforms.Resize((120,840)),
             transforms.ToTensor()])
-        # print(pred.shape)
-        # print(fig.shape)
-        # exit()
-        pred = enlarge1((pred.clone().squeeze(0)+1)/2).unsqueeze(0)
+        pred = enlarge1(pred.clone().squeeze(0)).unsqueeze(0)
         fig = enlarge2(fig.squeeze(0)).unsqueeze(0)
         self.writer.add_image('L{},R{}/Posterior'.format(slen,num_reps),pred,idx)
         self.writer.add_image('L{},R{}/Prediction'.format(slen,num_reps),fig,idx)
@@ -130,12 +127,13 @@ class TaskRepeatCopy(TaskBase):
     def _data_gen(self,num_batches,batch_size,rep_num=None,seq_len=None):
         for batch in range(num_batches):
             if seq_len is None:
-                seq_len = random.randint(3,12)
+                seq_len = random.randint(1,10)
             if rep_num is None:
                 rep_num = random.randint(self.rep_min,self.rep_max)
             dist = torch.distributions.binomial.Binomial(1,torch.ones(seq_len+2,batch_size,self.seq_width) * 0.5)
             data = dist.sample()
             y = data.clone()[:-2,:,:].repeat(rep_num,1,1)
+            y = torch.cat([y,torch.ones(1,batch_size,self.seq_width)])
             data[seq_len,:,:] = 1.0 # delimiter
             data[seq_len+1,:,:] = (rep_num-self.rep_mean)/self.rep_std
 
