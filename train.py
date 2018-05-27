@@ -1,24 +1,11 @@
 import argparse
-import json
-import random
-import sys
-import torch
-import numpy as np
-from tasks.copy import TaskCopy
-
-## Marcos
-RANDOM_SEED = 1000
-
-def init_seed(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    random.seed(seed)
+from marcos import *
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='train.py',
             description = 'Neural Turing Machine Training')
     parser.add_argument('--seed',type=int,default=RANDOM_SEED)
-    parser.add_argument('--task',type=str,choices=['copy'],default='copy')
+    parser.add_argument('--task',type=str,choices=TASK_DICT.keys(),default='copy')
     parser.add_argument('--seq_width',type=int,help='# of bits per time slot')
     parser.add_argument('--ctrl_size',type=int, help='hidden dimension of controller')
     parser.add_argument('--ctrl_num_layers',type=int,help='# of layers of controller')
@@ -32,6 +19,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     init_seed(args.seed)
-    task = TaskCopy(vars(args),'train')
+
+    task = TASK_DICT[args.task](vars(args),'train')
     task.init()
     task.train()

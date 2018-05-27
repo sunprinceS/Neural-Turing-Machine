@@ -14,6 +14,7 @@ class TaskBase(object):
 
     def __init__(self,name,mark,mode):
         self.name = name
+        print(name)
         self.mark = mark
         self.mode = mode
         self.writer = SummaryWriter()
