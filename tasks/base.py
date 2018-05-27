@@ -1,6 +1,5 @@
 import os
 import random
-import numpy as np
 import torch
 from torch import optim, nn
 from torchvision import transforms
@@ -13,11 +12,11 @@ from ntm.ntm import NTM
 
 class TaskBase(object):
 
-    def __init__(self,name,mark):
+    def __init__(self,name,mark,mode):
         self.name = name
         self.mark = mark
+        self.mode = mode
         self.writer = SummaryWriter()
-        self.writer_test = SummaryWriter()
 
     def train(self):
         raise NotImplementedError
@@ -47,7 +46,8 @@ class TaskBase(object):
         memory = self.net.memory
         N,M = memory.size
         # exit()
-        memory = F.sigmoid(memory.get_memory().t().view(1,M,N))
+        # memory = F.sigmoid(memory.get_memory().t().view(1,M,N))
+        memory = memory.get_memory().t().view(1,M,N)
         enlarge = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((120,840)),
@@ -58,5 +58,4 @@ class TaskBase(object):
         
     def save_model(self,model,idx):
         path = "log/{}/{}/{}.model".format(self.name,self.mark,idx)
-        print(path)
         torch.save(model.state_dict(),path)
